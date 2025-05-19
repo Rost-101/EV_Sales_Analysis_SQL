@@ -52,13 +52,11 @@ ORDER BY Total_Revenue DESC;
 WITH RevenueByBrandRegion AS (
   SELECT Region, Brand, SUM(Revenue) AS Total_Revenue
   FROM `gentle-respect-458915-s5.12.EV_cars`
-  GROUP BY Region, Brand
-),
+  GROUP BY Region, Brand),
 RegionTotals AS (
   SELECT Region, SUM(Revenue) AS Region_Total_Revenue
   FROM `gentle-respect-458915-s5.12.EV_cars`
-  GROUP BY Region
-),
+  GROUP BY Region),
 RankedBrands AS (
   SELECT 
     rbr.Region,
@@ -67,8 +65,7 @@ RankedBrands AS (
     rt.Region_Total_Revenue,
     ROW_NUMBER() OVER (PARTITION BY rbr.Region ORDER BY rbr.Total_Revenue DESC) AS rank
   FROM RevenueByBrandRegion rbr
-  JOIN RegionTotals rt ON rbr.Region = rt.Region
-)
+  JOIN RegionTotals rt ON rbr.Region = rt.Region)
 SELECT 
   Region,
   Brand,
@@ -79,6 +76,10 @@ FROM RankedBrands
 WHERE rank = 1
 ORDER BY Region;
 ```
+#### ✅ Результат: 
+<img src="https://github.com/user-attachments/assets/c488cac1-e01b-46d2-ba94-c89ae4d88e9a" width="600">
+
+Бренд Toyota демонструє найбільшу частку доходу (22.35%) у Африці з доходом 1,248,52791, тоді як Kia лідирує в Азії з 19.12% (590,0556). У Північній Америці Hyundai має 15.81% (11,474,486), а BYD у Південній Америці — 17.19% (3,065,970), що відображає регіональну специфіку популярності брендів.
 
 ### Завдання 3: Бренди з найвищою середньою знижкою в регіонах
 **Мета**: Визначити бренди (Brand), які мають найвищу середню знижку (Discount_Percentage) у кожному регіоні (Region), враховуючи лише бренди зі знижкою понад 10%. Для таких брендів підрахувати середню ємність батареї (Battery_Capacity_kWh) та загальний дохід (Revenue).
@@ -106,6 +107,10 @@ FROM CTE2
 WHERE rank = 1
 ORDER BY total_revenue DESC;
 ```
+#### ✅ Результат: 
+<img src="https://github.com/user-attachments/assets/ca4b7bef-9e33-4cfa-be95-f6580abb02ee" width="600">
+
+Kia у Північній Америці має найвищу середню знижку (11.36%) з доходом 113144270, тоді як Toyota у Південній Америці пропонує найбільшу знижку (16.5%) при доході 10727248. У Європі Volkswagen демонструє знижку 12.5% з доходом 16700280, а BYD в Африці — 11.0% з доходом 24763916, що підкреслює регіональні відмінності у стратегіях знижок та доходах брендів
 
 ### Завдання 4: Ринкова частка брендів за місяцями
 **Мета**: Для кожного місяця (Date) і бренду (Brand) підрахувати кількість проданих одиниць (Units_Sold), загальну кількість проданих одиниць у місяці та ринкову частку бренду (у відсотках).
@@ -124,28 +129,42 @@ FROM `12.EV_cars`
 GROUP BY date, Brand
 ORDER BY date, Brand_Market_Share DESC;
 ```
+#### ✅ Результат: 
+<img src="https://github.com/user-attachments/assets/a2e468b8-e0f6-4a48-a404-ff8c87d03cfc" width="600">
 
-### Завдання 5: Типи автомобілів із падінням продажів
-**Мета**: Визначити типи автомобілів (Vehicle_Type), у яких продажі (Units_Sold) знизилися на 30% або більше порівняно з попереднім місяцем, та показати відсоток падіння.
+У січні 2023 року BMW лідирує з ринковою часткою 19.77% (2393 одиниці), за ним йдуть Ford з 17.91% (2168 одиниць) та Kia з 17.08% (2068 одиниць). Tesla та BYD мають найменші частки — 3.03% (367 одиниць) та 3.68% (445 одиниць) відповідно, що відображає значну перевагу європейських та корейських брендів у цьому місяці. Результати охоплюють багато місяців, але тут наведено приклад лише за січень 2023 року.
+
+### Завдання 5: Аналіз ефективності знижок
+**Мета**: Проаналізувати, чи впливають знижки (Discount_Percentage) на продажі (Units_Sold), порівнюючи середні продажі для різних рівнів знижок у кожному регіоні (Region).
 
 ```sql
-WITH SalesWithLag AS (
-    SELECT
-        Date,
-        Vehicle_Type,
-        SUM(Units_Sold) AS Total_Sold,
-        LAG(SUM(Units_Sold)) OVER (PARTITION BY Vehicle_Type ORDER BY Date) AS Previous_Units_Sold
+WITH DiscountLevels AS (
+    SELECT 
+        Region,
+        CASE 
+            WHEN Discount_Percentage = 0 THEN 'No Discount'
+            WHEN Discount_Percentage BETWEEN 1 AND 10 THEN 'Low (1-10%)'
+            WHEN Discount_Percentage BETWEEN 11 AND 20 THEN 'Medium (11-20%)'
+            ELSE 'High (>20%)'
+        END AS Discount_Level,
+        AVG(Units_Sold) AS Avg_Units_Sold,
+        AVG(Discount_Percentage) AS Avg_Discount
     FROM `12.EV_cars`
-    GROUP BY Date, Vehicle_Type
-)
-SELECT
-    Date,
-    Vehicle_Type,
-    Previous_Units_Sold AS Previous_Month_Sales,
-    Total_Sold AS Current_Month_Sales,
-    ROUND(((Previous_Units_Sold - Total_Sold) * 100.0 / Previous_Units_Sold), 2) AS Drop_Percent
-FROM SalesWithLag
-WHERE Previous_Units_Sold IS NOT NULL
-  AND ROUND(((Previous_Units_Sold - Total_Sold) * 100.0 / Previous_Units_Sold), 2) >= 30
-ORDER BY Date, Vehicle_Type;
+    GROUP BY Region, 
+        CASE 
+            WHEN Discount_Percentage = 0 THEN 'No Discount'
+            WHEN Discount_Percentage BETWEEN 1 AND 10 THEN 'Low (1-10%)'
+            WHEN Discount_Percentage BETWEEN 11 AND 20 THEN 'Medium (11-20%)'
+            ELSE 'High (>20%)'END)
+SELECT 
+    Region,
+    Discount_Level,
+    ROUND(Avg_Discount, 2) AS Average_Discount,
+    ROUND(Avg_Units_Sold, 2) AS Average_Units_Sold
+FROM DiscountLevels
+ORDER BY Region, Avg_Units_Sold DESC;
 ```
+#### ✅ Результат: 
+<img src="https://github.com/user-attachments/assets/5aea626a-9319-44d2-86ba-3f85f63a12fa" width="600">
+
+У Африці середні продажі найбільші при середній знижці 14.82% (237.33 одиниць), тоді як у Європі середня знижка 15.58% забезпечує 253.58 одиниць. У Північній Америці найбільші продажі (223.02 одиниці) спостерігаються при знижці 15.5%, тоді як у Азії при відсутності знижок продажі нижчі (201.0 одиниць), що вказує на різний вплив знижок на продажі в регіонах.
